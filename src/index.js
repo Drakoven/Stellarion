@@ -1,29 +1,29 @@
-// On importe les outils dont on a besoin
 const express = require('express')
 const cors = require('cors')
 require('dotenv').config()
 
-// On importe la connexion à la base de données
-// dès le démarrage du serveur, la connexion est établie
+// Connexion à la base de données
 const db = require('./db/index')
 
-// On crée l'application Express
+// Import des routes
+const authRoutes = require('./routes/auth')
+
+// Création de l'application Express
 const app = express()
 
-// CORS permet au frontend React (sur Netlify)
-// de parler à ce backend sans être bloqué
+// Middlewares globaux
 app.use(cors())
-
-// Permet au serveur de lire le JSON
-// envoyé par le frontend
 app.use(express.json())
 
-// Route de test — pour vérifier que le serveur fonctionne
+// Routes
+app.use('/api/auth', authRoutes)
+
+// Route de test serveur
 app.get('/', (req, res) => {
   res.json({ message: 'Stellarion API en ligne 🚀' })
 })
 
-// Route de test BDD — vérifie que PostgreSQL répond
+// Route de test BDD
 app.get('/test-db', async (req, res) => {
   try {
     const result = await db.query('SELECT NOW() as heure')
@@ -36,7 +36,7 @@ app.get('/test-db', async (req, res) => {
   }
 })
 
-// On démarre le serveur sur le port défini dans .env
+// Démarrage du serveur
 const PORT = process.env.PORT || 3000
 app.listen(PORT, () => {
   console.log(`Serveur Stellarion démarré sur le port ${PORT}`)
