@@ -6,6 +6,7 @@ const db = require('./db/index')
 const authRoutes = require('./routes/auth')
 const planetesRoutes = require('./routes/planetes')
 const constructionRoutes = require('./routes/construction')
+const recherchesRoutes = require('./routes/recherches')
 const { executerTick } = require('./game/tick')
 
 const app = express()
@@ -16,6 +17,7 @@ app.use(express.json())
 app.use('/api/auth', authRoutes)
 app.use('/api/planetes', planetesRoutes)
 app.use('/api/construction', constructionRoutes)
+app.use('/api/recherches', recherchesRoutes)
 
 app.get('/', (req, res) => {
   res.json({ message: 'Stellarion API en ligne 🚀' })
@@ -37,6 +39,6 @@ const PORT = process.env.PORT || 3000
 app.listen(PORT, () => {
   console.log(`Serveur Stellarion démarré sur le port ${PORT}`)
   executerTick()
-  setInterval(executerTick, 3600000)
+  setInterval(executerTick, 10000)
   console.log('⚙️ Moteur de jeu démarré - tick toutes les heures')
 })
