@@ -7,6 +7,7 @@ const authRoutes = require('./routes/auth')
 const planetesRoutes = require('./routes/planetes')
 const constructionRoutes = require('./routes/construction')
 const recherchesRoutes = require('./routes/recherches')
+const classementRoutes = require('./routes/classement')
 const { executerTick } = require('./game/tick')
 
 const app = express()
@@ -18,7 +19,7 @@ app.use('/api/auth', authRoutes)
 app.use('/api/planetes', planetesRoutes)
 app.use('/api/construction', constructionRoutes)
 app.use('/api/recherches', recherchesRoutes)
-
+app.use('/api/classement', classementRoutes)
 app.get('/', (req, res) => {
   res.json({ message: 'Stellarion API en ligne 🚀' })
 })
