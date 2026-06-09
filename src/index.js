@@ -4,6 +4,7 @@ require('dotenv').config()
 
 const db = require('./db/index')
 const authRoutes = require('./routes/auth')
+const planetesRoutes = require('./routes/planetes')
 const { executerTick } = require('./game/tick')
 
 const app = express()
@@ -12,6 +13,7 @@ app.use(cors())
 app.use(express.json())
 
 app.use('/api/auth', authRoutes)
+app.use('/api/planetes', planetesRoutes)
 
 app.get('/', (req, res) => {
   res.json({ message: 'Stellarion API en ligne 🚀' })
