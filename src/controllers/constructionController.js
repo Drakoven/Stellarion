@@ -197,4 +197,211 @@ const lancerConstruction = async (req, res) => {
   }
 }
 
-module.exports = { lancerConstruction }
+// ================================
+// STATS DES VAISSEAUX
+// ================================
+
+const statsVaisseaux = {
+  chasseur_leger: {
+    ferrux: 3000, vorith: 1000, solaris: 0,
+    temps: 120,
+    puissance: 50, blindage: 400, bouclier: 10
+  },
+  chasseur_lourd: {
+    ferrux: 6000, vorith: 4000, solaris: 0,
+    temps: 300,
+    puissance: 150, blindage: 1000, bouclier: 25
+  },
+  croiseur: {
+    ferrux: 20000, vorith: 7000, solaris: 2000,
+    temps: 900,
+    puissance: 400, blindage: 2700, bouclier: 50
+  },
+  cuirasse: {
+    ferrux: 45000, vorith: 15000, solaris: 0,
+    temps: 2400,
+    puissance: 1000, blindage: 6000, bouclier: 200
+  },
+  destructeur: {
+    ferrux: 60000, vorith: 15000, solaris: 0,
+    temps: 3600,
+    puissance: 2000, blindage: 11000, bouclier: 500
+  },
+  bombardier: {
+    ferrux: 50000, vorith: 25000, solaris: 15000,
+    temps: 4800,
+    puissance: 1000, blindage: 7500, bouclier: 250
+  },
+  sonde_espionnage: {
+    ferrux: 0, vorith: 1000, solaris: 0,
+    temps: 60,
+    puissance: 0, blindage: 100, bouclier: 0
+  },
+  transporteur_leger: {
+    ferrux: 2000, vorith: 2000, solaris: 0,
+    temps: 180,
+    puissance: 5, blindage: 400, bouclier: 10,
+    cargo: 5000
+  },
+  transporteur_lourd: {
+    ferrux: 6000, vorith: 6000, solaris: 0,
+    temps: 600,
+    puissance: 5, blindage: 1200, bouclier: 25,
+    cargo: 25000
+  },
+  vaisseau_extracteur: {
+    ferrux: 10000, vorith: 6000, solaris: 2000,
+    temps: 900,
+    puissance: 5, blindage: 1000, bouclier: 10,
+    cargo: 20000
+  },
+  vaisseau_colonisateur: {
+    ferrux: 10000, vorith: 20000, solaris: 10000,
+    temps: 7200,
+    puissance: 50, blindage: 3000, bouclier: 100
+  },
+  titan: {
+    ferrux: 5000000, vorith: 4000000, solaris: 1000000,
+    temps: 604800,
+    puissance: 8000, blindage: 120000, bouclier: 5000
+  }
+}
+
+// ================================
+// CONSTRUCTION DE VAISSEAUX
+// ================================
+const construireVaisseau = async (req, res) => {
+  try {
+    const { planete_id, vaisseau, quantite } = req.body
+
+    if (!planete_id || !vaisseau || !quantite) {
+      return res.status(400).json({ 
+        erreur: 'planete_id, vaisseau et quantite requis' 
+      })
+    }
+
+    if (quantite <= 0 || quantite > 10000) {
+      return res.status(400).json({ 
+        erreur: 'Quantité invalide (1 à 10000)' 
+      })
+    }
+
+    // Vérifier que le vaisseau existe
+    const stats = statsVaisseaux[vaisseau]
+    if (!stats) {
+      return res.status(400).json({ erreur: 'Vaisseau invalide' })
+    }
+
+    // Vérifier que la planète appartient au joueur
+    const planete = await db.query(
+      'SELECT * FROM planetes WHERE id = $1 AND joueur_id = $2',
+      [planete_id, req.joueur.id]
+    )
+
+    if (planete.rows.length === 0) {
+      return res.status(404).json({ 
+        erreur: 'Planète introuvable ou non autorisé' 
+      })
+    }
+
+    // Vérifier que le chantier spatial existe (niveau > 0)
+    const batiments = await db.query(
+      'SELECT * FROM batiments WHERE planete_id = $1',
+      [planete_id]
+    )
+
+    if (batiments.rows[0].chantier_spatial === 0) {
+      return res.status(400).json({ 
+        erreur: 'Vous devez construire un Chantier Spatial d\'abord' 
+      })
+    }
+
+    // Vérifier qu'il n'y a pas déjà une construction de vaisseaux en cours
+    const fileEnCours = await db.query(
+      `SELECT id FROM files_construction 
+       WHERE planete_id = $1 AND type = 'VAISSEAU'`,
+      [planete_id]
+    )
+
+    if (fileEnCours.rows.length > 0) {
+      return res.status(400).json({ 
+        erreur: 'Une construction de vaisseau est déjà en cours' 
+      })
+    }
+
+    // Calculer le coût total
+    const coutTotal = {
+      ferrux:  stats.ferrux  * quantite,
+      vorith:  stats.vorith  * quantite,
+      solaris: stats.solaris * quantite
+    }
+
+    // Vérifier les ressources
+    const ressources = planete.rows[0]
+    if (
+      ressources.ferrux  < coutTotal.ferrux  ||
+      ressources.vorith  < coutTotal.vorith  ||
+      ressources.solaris < coutTotal.solaris
+    ) {
+      return res.status(400).json({ 
+        erreur: 'Ressources insuffisantes',
+        cout_total: coutTotal,
+        disponible: {
+          ferrux:  ressources.ferrux,
+          vorith:  ressources.vorith,
+          solaris: ressources.solaris
+        }
+      })
+    }
+
+    // Calculer le temps total
+    // Chantier spatial réduit le temps
+    const niveauChantier = batiments.rows[0].chantier_spatial
+    const niveauDroide   = batiments.rows[0].usine_droide
+    const niveauAndroide = batiments.rows[0].usine_androide
+
+    const diviseur = 1 + niveauChantier + niveauDroide + (2 * niveauAndroide)
+    const tempsUnitaire = Math.max(
+      Math.floor(stats.temps / diviseur), 5
+    )
+    const tempsTotal = tempsUnitaire * quantite
+    const heureFin = new Date(Date.now() + tempsTotal * 1000)
+
+    // Déduire les ressources
+    await db.query(`
+      UPDATE planetes 
+      SET ferrux  = ferrux  - $1,
+          vorith  = vorith  - $2,
+          solaris = solaris - $3
+      WHERE id = $4
+    `, [coutTotal.ferrux, coutTotal.vorith, coutTotal.solaris, planete_id])
+
+    // Ajouter à la file de construction
+    // niveau_cible = quantité commandée
+    await db.query(`
+      INSERT INTO files_construction 
+      (planete_id, joueur_id, type, element, niveau_actuel,
+       niveau_cible, ferrux_cout, vorith_cout, solaris_cout, heure_fin)
+      VALUES ($1, $2, 'VAISSEAU', $3, 0, $4, $5, $6, $7, $8)
+    `, [
+      planete_id, req.joueur.id, vaisseau,
+      quantite,
+      coutTotal.ferrux, coutTotal.vorith, coutTotal.solaris,
+      heureFin
+    ])
+
+    res.json({
+      message: `Construction de ${quantite} ${vaisseau} lancée !`,
+      cout_total: coutTotal,
+      temps_unitaire_secondes: tempsUnitaire,
+      temps_total_secondes: tempsTotal,
+      heure_fin: heureFin
+    })
+
+  } catch (err) {
+    console.error('Erreur construireVaisseau:', err)
+    res.status(500).json({ erreur: 'Erreur serveur' })
+  }
+}
+
+module.exports = { lancerConstruction, construireVaisseau }
